@@ -8,6 +8,11 @@ import cv2 as cv
 import win32gui
 import win32ui
 import win32con
+from PIL import Image, ImageGrab
+
+import pytesseract
+#NOTE to install pytesseract for image_to_text functions refer to https://stackoverflow.com/questions/50951955/pytesseract-tesseractnotfound-error-tesseract-is-not-installed-or-its-not-i
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 ### --------------- Needle and Haystack Classes Start --------------- ###
 class Needle:
@@ -43,6 +48,7 @@ class Haystack:
     cropped_y = 0
     offset_x = 0
     offset_y = 0
+    rect = []
     cropped_region=None
 
     # constructor
@@ -75,6 +81,7 @@ class Haystack:
             # coordinates into actual screen coordinates
             self.offset_x = self.left + self.cropped_x
             self.offset_y = self.top + self.cropped_y
+            #self.cropped_region = [self.offset_x, self.offset_y, self.w, self.h]
 
         else: #cropped_region = [x,y,w, h]
             #self.offset_x, self.offset_y, self.w, self.h = self.cropped_region
@@ -82,6 +89,8 @@ class Haystack:
             self.offset_y = self.cropped_region[1]
             self.w = self.cropped_region[2]
             self.h = self.cropped_region[3]
+
+
 
     def get_screenshot(self):
 
@@ -176,12 +185,27 @@ class Bot(Haystack,Needle):
     SKILLING_SIZE = [175,200]
     SKILLING_OFFSET_FROM_TL = [0,0] #[0,0]
     COMPASS_OFFSET_FROM_TR = [-158, 21]
+    DESPOSIT_BOX_OFFSET_INITIAL = [50,30]
+    DESPOSIT_BOX_OFFSET_SIZE = [455,285]
+    HEALTH_OFFSET_FROM_TR=[-205,57]
+    HEALTH_SIZE=[25,20]
+    PRAYER_OFFSET_FROM_TR=[-205,92]
+    PRAYER_SIZE=[25,20]
+    STAMINA_OFFSET_FROM_TR=[-200,124]
+    STAMINA_SIZE=[28,20]
+    ATTACK_POWER_OFFSET_FROM_TR=[-172,148]
+    ATTACK_POWER_SIZE=[25,23]
+    MINIMAP_OFFSET_FROM_TR=[]
+    MINIMAP_SIZE=[]
+    #
+    CLIENT_SIZE_INTIAL = [765,500]
 
     # properties
     client_haystack=None
     inv_haystack=None
     chat_haystack=None
     skilling_haystack=None
+    deposit_box_region_haystack=None
     top_left=[]
     top_right=[]
     bottom_left=[]
@@ -190,6 +214,12 @@ class Bot(Haystack,Needle):
     inv_region=[]
     chat_region=[]
     skilling_region=[]
+    #bank_region=[]
+    deposit_box_region=[]
+    hp_region=[]
+    prayer_region=[]
+    stamina_region=[]
+    attack_power_region=[]
     debug=False
     screenshot=None
     offset=None
@@ -206,17 +236,30 @@ class Bot(Haystack,Needle):
         self.top_right      = [self.client_haystack.offset_x + self.client_haystack.w, self.client_haystack.offset_y]
         self.bottom_left    = [self.client_haystack.offset_x , self.client_haystack.offset_y + self.client_haystack.h]
         self.bottom_right   = [self.client_haystack.offset_x + self.client_haystack.w, self.client_haystack.offset_y + self.client_haystack.h]
-        self.centre         = [self.left+(self.w/2)    ,self.top+(self.h/2) ]
-        
+        self.centre         = [self.client_haystack.offset_x+int(self.client_haystack.w/2) ,self.client_haystack.offset_y+int(self.client_haystack.h/2) ]
         # bank_region = 
         # self.bank_haystack   = Haystack(client_name, cropped_region=bank_region)
         self.inv_region      = append(add(self.bottom_right,self.INV_OFFSET_FROM_BR),self.INV_SIZE) #[x,y,w,h]
         self.chat_region     = append(add(self.bottom_left,self.CHAT_OFFSET_FROM_BL),self.CHAT_SIZE) #[x,y,w,h]
         self.skilling_region = append(add(self.top_left,self.SKILLING_OFFSET_FROM_TL),self.SKILLING_SIZE) #[x,y,w,h]
+        # self.bank_haystack   = Haystack(client_name, cropped_region=bank_region)
+        self.deposit_box_region = append(add(self.top_left,
+                                            add([int((self.client_haystack.w-self.CLIENT_SIZE_INTIAL[0])/2),int((self.client_haystack.h-self.CLIENT_SIZE_INTIAL[1])/2)],self.DESPOSIT_BOX_OFFSET_INITIAL))
+                                        , self.DESPOSIT_BOX_OFFSET_SIZE)
+        self.health_region       = append(add(self.top_right,self.HEALTH_OFFSET_FROM_TR),self.HEALTH_SIZE) #[x,y,w,h]
+        self.prayer_region       = append(add(self.top_right,self.PRAYER_OFFSET_FROM_TR),self.PRAYER_SIZE) #[x,y,w,h]
+        self.stamina_region      = append(add(self.top_right,self.STAMINA_OFFSET_FROM_TR),self.STAMINA_SIZE) #[x,y,w,h]
+        self.attack_power_region = append(add(self.top_right,self.ATTACK_POWER_OFFSET_FROM_TR),self.ATTACK_POWER_SIZE) #[x,y,w,h]
 
         self.inv_haystack      = Haystack(client_name, cropped_region=self.inv_region)
         self.chat_haystack     = Haystack(client_name, cropped_region=self.chat_region)
         self.skilling_haystack = Haystack(client_name, cropped_region=self.skilling_region)
+        #self.bank = Haystack(client_name, cropped_region=self.bank)
+        self.deposit_box_haystack  = Haystack(client_name, cropped_region=self.deposit_box_region)
+        self.health_haystack       = Haystack(client_name, cropped_region=self.health_region)
+        self.prayer_haystack       = Haystack(client_name, cropped_region=self.prayer_region)
+        self.stamina_haystack      = Haystack(client_name, cropped_region=self.stamina_region)
+        self.attack_power_haystack = Haystack(client_name, cropped_region=self.attack_power_region)
 
         self.debug=debug
         self.screenshot=None
@@ -245,6 +288,7 @@ class Bot(Haystack,Needle):
         for i in range(0,len(haystack_imgs)):
             cv.imshow('DEBUG - {region[i]}.jpeg', haystack_img[i])
     """
+
     ### --------------- DEBUGGING End --------------- ###
 
     ### --------------- HAND Start --------------- ###
@@ -255,16 +299,16 @@ class Bot(Haystack,Needle):
         #randomizeCoord adds a bit of randomization to the final coordinates
         #move determines if the mouse should move to its new location. move=False simply clicks the final coordinates
         #speed=2000 -> 2000px per 1sec if move=True
-        
+        if coord is None: return False
         x_coord=coord[0]
         y_coord=coord[1]
 
         if randomizeCoord:
 
-            w=13 #these w and h values are just guesses. Would be better if you were passed the img's actual w and h data.
-            h=13
-            x_sd=w/3
-            y_sd=h/3
+            w=randint(7,15) #these w and h values are just guesses. Would be better if you were passed the img's actual w and h data.
+            h=randint(7,15)
+            x_sd=w/4
+            y_sd=h/4
 
             x_coord=int(normalvariate(x_coord,x_sd))
             y_coord=int(normalvariate(y_coord,y_sd))
@@ -351,28 +395,35 @@ class Bot(Haystack,Needle):
     #    elif region == 'chat':       return self.chat_haystack.get_screenshot()
     
     def get_haystack(self, region='client'):
-        if self.debug: print(f"DEBUGGING: getting haystack for {region}")
-        if   region == 'client':     return self.client_haystack
-       #elif region == 'bank':       return self.bank_haystack
-        elif region == 'inv':        return self.inv_haystack
-        elif region == 'skilling':   return self.skilling_haystack
-        elif region == 'chat':       return self.chat_haystack
-    
+        #if self.debug: print(f"DEBUGGING: getting haystack for {region}")
+        if   region == 'client':       return self.client_haystack
+       #elif region == 'bank':         return self.bank_haystack
+        elif region == 'inv':          return self.inv_haystack
+        elif region == 'skilling':     return self.skilling_haystack
+        elif region == 'chat':         return self.chat_haystack
+        elif region == 'deposit_box':  return self.deposit_box_haystack
+        elif region == 'health':       return self.health_haystack
+        elif region == 'prayer':       return self.prayer_haystack
+        elif region == 'stamina':      return self.stamina_haystack
+        elif region == 'attack_power': return self.attack_power_haystack
+
+
     # Change on_screen to in_haystack or in_region??
     def on_screen(self, item, region='client', threshold=THRESHOLD, debug_mode=DEBUG_MODE):
         if self.debug: print(f"DEBUGGING: on screen check for {item.path} in {region}")
         haystack = self.get_haystack(region)
-        coords = self.find_img(item, haystack, threshold=threshold)
+        coords = self.find_img(item, haystack, threshold=threshold) #TO DO: Update to return True once the first item has been found, takes too long to find all using find_img()
         return bool(coords)
 
-    def find_contours(self, colour, region="client", key='dist', debug=False, debug_img=None):
+    def find_contours(self, colour, region="client", key='dist', ignore_region=[0,0,0,0], debug=False, debug_img=None):
         if self.debug: print(f"DEBUGGING: find contours for {colour}")
         # lower and upper BGR values (NOT RGB!!)
-        if   colour == 'blue':  colour_limits = [[67, 67,  0], [225, 215,  47]]
-        elif colour == 'green': colour_limits = [[0, 76,  20], [46, 255, 54]]
+        if   colour == 'blue':  colour_limits = [[67, 67,  0], [215, 215,  47]]
+        elif colour == 'green': colour_limits = [[0, 120,  0], [20, 255, 40]]
         elif colour == 'yellow':colour_limits = [[0, 120,120], [50, 255, 255]] 
-        elif colour == 'red':   colour_limits = [[8, 8,  80], [28, 28, 255]] #RED is bugging when used on 'client' since lots of red icons
-        elif True: pass #TO DO: ADD OTHER COLOURS, RED AND BLUE
+        elif colour == 'red':   colour_limits = [[0, 0,  28], [28, 28, 255]] # RED is bugging when used on 'client' since lots of red icons
+        elif False: pass #TO DO: ADD OTHER COLOURS, RED AND BLUE
+        else: print('No colour has been specified')
 
         screenshot, offset = self.get_haystack(region).get_screenshot()
         lower = array(colour_limits[0], dtype="uint8") #numpy.array() objects
@@ -382,51 +433,93 @@ class Bot(Haystack,Needle):
         output = cv.bitwise_and(screenshot, screenshot, mask=mask)
         ret, thresh = cv.threshold(mask, 40, 255, 0)    #WHAT DO THESE NUMBERS MEAN?
         contours, hierarchy = cv.findContours(thresh, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_NONE)
+        rectangles=[]
+
+        if ignore_region!=[0,0,0,0]: ignore_region=self.get_haystack(ignore_region).cropped_region
+
+        left_ignore, top_ignore, w_ignore, h_ignore = ignore_region
+        right_ignore, bottom_ignore = (left_ignore+w_ignore,top_ignore+h_ignore)
+        
         if len(contours) != 0:
-            if key== 'dist':
-                closest_dist_to_centre=1000
+
+            for contour in contours:
+                rectangles.append(cv.boundingRect(contour))
+                
+            # Algorthim for removing contours that are *too large*, *too small*, or TOP_LEFT is in ignore_region 
+            a=rectangles    # All intial contours
+            b=[]            # Temp array to be sorted and filterd
+            c=[]            # Final contours
+            for rect in a:
+                #    w > 6   and   h > 6        # TOP_LEFT is not in ignore_region
+                if rect[2]>6 and rect[3]>6 and not ( left_ignore < rect[0] < right_ignore and top_ignore < rect[1] < bottom_ignore ): # Remove clear contours have have a dimension less than 10 (these are always errors)
+                    b.append(rect)
+            if len(b)==0: return  #If all contours found were errors then shortcut to returning false
+            b=sorted(b, key=lambda rect: rect[2]*rect[3])   # Sort from smallest area to largest
+            middleIndex=int((len(b))/2)
+            median_rect = b[middleIndex]             
+            median_area = median_rect[2]*median_rect[3]                 # Pick middle area
+            for rect in b:
+                if median_area*0.2 < rect[2]*rect[3] < median_area*6:
+                    c.append(rect)
+            rectangles=c
+
+            if key == 'dist':
+                closest_dist_to_centre=10000
                 closest_to_centre=None
-                for contour in contours:
-                    x, y, w, h = cv.boundingRect(contour)
-                    dist_to_centre=sqrt(((x+w/2)-self.centre[0])**2+((y+h/2)-self.centre[1])**2)
+                for i in range(len(rectangles)):
+                    x, y, w, h = rectangles[i]
+                    dist_to_centre=sqrt((x+(w/2)-self.centre[0])**2+(y+(h/2)-self.centre[1])**2)
                     if dist_to_centre < closest_dist_to_centre:
                             closest_dist_to_centre=dist_to_centre
                             closest_to_centre=[x,y,w,h]
-                #print(len(contours))
-                
-                #contour = min(contours, key=self.dist_from_centre)            
-                # find contour which is closet to the centre of the haystack
-                # contour_closest_to_centre = max(contours, key=dist_from()) 
-                # contour_closest_to_centre = max(contours, key=lambda k: ) 
-                #print(contours)
+                x, y, w, h = closest_to_centre 
 
-                x, y, w, h = closest_to_centre
-            elif key == 'area':
+            elif key == 'max_area':
+                x, y, w, h = rectangles[-1]
                 # find the biggest countour (c) by the area
-                contour = max(contours, key=cv.contourArea)
-                x, y, w, h = cv.boundingRect(contour)
-            
-            if self.debug: image = cv.rectangle(screenshot, pt1=(x, y), pt2=(x+w, y+h), color=(0, 0, 255), thickness=2)
-            
+                #contour = max(contours, key=cv.contourArea)
+                #x, y, w, h = cv.boundingRect(contour)
+
+            elif key == 'min_area':
+                x, y, w, h = rectangles[0]
+
             center_x = x + int(w/2)
             center_y = y + int(h/2)
 
             center_point_with_offset=tuple(add((center_x, center_y),offset)) 
         
             if self.debug:
-                print("x, y, w, h values of contours")
-                print(x, y, w, h)
+                print(f"number of contours found: {len(rectangles)}")
+                for (x ,y, w, h) in rectangles:
+                    #print(f"x, y, w, h values of contours: {x, y, w, h}")
+                    print(f"{x, y, w, h},")
                 # Determine the box position
-                top_left = (x, y)
-                bottom_right = (x + w, y + h)
+                    top_left = (x, y)
+                    bottom_right = (x + w, y + h)
+                # Draw rectangles
+                    cv.rectangle(debug_img, top_left, bottom_right, color=(0, 0, 255), thickness=2)
+                        # Draw point at centre of rectangles
+                    if key=='dist': 
+                        centre = (int(x+w/2),int(y+h/2))
+                        cv.drawMarker(debug_img, centre, 
+                                color=(0, 255, 255), markerType=cv.MARKER_CROSS, 
+                                markerSize=5, thickness=2)
+
+
                 # Draw contours
-                cv.drawContours(debug_img, contours, -1, (0, 255, 0), 3)
+                # cv.drawContours(debug_img, contours, -1, (0, 255, 0), 3)
+                
+                # Draw centre of img
+                if key == 'dist':
+                    cv.drawMarker(debug_img, self.centre, 
+                                color=(255, 0, 255), markerType=cv.MARKER_CROSS, 
+                                markerSize=20, thickness=2)
                 
             return center_point_with_offset
         else:
-            return False
+            return 
 
-    def find_img(self, needle, haystack, threshold=0.7, debug_mode=None, debug_img=None):
+    def find_img(self, needle, haystack, threshold=0.7, greyscale=False, debug_mode=None, debug_img=None):
         if self.debug: print(f"DEBUGGING:       finding {needle.path} ")
         haystack_img, offset = haystack.get_screenshot()
         result = cv.matchTemplate(haystack_img, needle.needle_img, needle.method)
@@ -485,9 +578,15 @@ class Bot(Haystack,Needle):
         #if debug:
         #    cv.imwrite('vision.py - DEBUG MODE.jpeg', haystack_img)
         
-        print(f'    Center Points: {center_points}')
+        if self.debug: print(f'    Center Points: {center_points}')
 
         return center_points
+
+    def extract_text(self, image, scale=1, config='--psm 1', lang='eng'):
+        image=cv.resize(image,None, fx=scale, fy=scale)
+        extracted_text = pytesseract.image_to_string(image, lang=lang, config=config) # --psm 6 -> Assume a single uniform block of text.
+        processed_text = ' '.join(extracted_text.split())
+        return processed_text
 
     def bank_is_open(self):
         return self.on_screen(bank_title, region='bank')
@@ -534,39 +633,91 @@ class Bot(Haystack,Needle):
             self.click(coord[0])
             self.clickSleeper('spam')
 
+    def read_stat(self, stat, scale=7):
+        colour_limits = [[0, 0,  0], [20, 255, 20]] #Limits for GREEN
+
+        lower = array(colour_limits[0], dtype="uint8") #numpy.array() objects
+        upper = array(colour_limits[1], dtype="uint8")
+
+        haystack_img, offset = self.get_haystack(stat).get_screenshot()
+        haystack_mask = cv.inRange(haystack_img, lower, upper)
+        haystack_masked_img = cv.bitwise_and(haystack_img, haystack_img, mask=haystack_mask) 
+        #grayscale_img = cv.cvtColor(haystack_masked_img, cv.COLOR_BGR2GRAY)      
+        _, threshold_img = cv.threshold(haystack_masked_img, 40, 255, 0)
+
+        return self.extract_text(threshold_img, scale=scale, config='--psm 6').lower()
+    
+    def click_attack_power(self, thres):
+        value=self.read_stat('attack_power')
+        try: value=int(value)
+        except: return 
+        if value>=thres: 
+            x,y,w,h = self.attack_power_region
+            coord=(uniform(x,x+w),uniform(y,y+h))
+            self.click(coord, randomizeCoord=False)
+            self.clickSleeper('inv_item')
+
     def skilling_check(self, skill):
-        if   "not" in skill: NOT=True
-        else:                NOT=False
-        
-        if NOT: # "not" is in skilling text, look for red text
-            text_img = Needle("Images\\skilling_" + skill +  "_not.jpg")
-            colour_limits = [[8, 8,  100], [28, 28, 205]] #Limits for RED
-        else: #  "not" is not in skilling text, look for green text
-            text_img = Needle("Images\\skilling_" + skill +  ".jpg")
-            colour_limits = [[0, 76,  20], [46, 255, 54]] #Limits for GREEN
-        
+        colour_limits = [[0, 0,  0], [20, 255, 255]] #Limits for RED and GREEN
+
         lower = array(colour_limits[0], dtype="uint8") #numpy.array() objects
         upper = array(colour_limits[1], dtype="uint8")
 
         haystack_img, offset = self.get_haystack('skilling').get_screenshot()
-        
-        mask = cv.inRange(haystack_img, lower, upper)
-        #if self.debug: print(f"DEBUGGING:       contour mask {mask}")
-        masked_img = cv.bitwise_and(haystack_img, haystack_img, mask=mask)
-        
-        result = cv.matchTemplate(masked_img, text_img.needle_img, text_img.method)
+        haystack_mask = cv.inRange(haystack_img, lower, upper)
+        haystack_masked_img = cv.bitwise_and(haystack_img, haystack_img, mask=haystack_mask) 
+        #grayscale_img = cv.cvtColor(haystack_masked_img, cv.COLOR_BGR2GRAY)      
+        _, threshold_img = cv.threshold(haystack_masked_img, 40, 255, 0)
 
-        locations = where(result >= 0.9)
-        locations = list(zip(*locations[::-1]))
+        extracted_text=self.extract_text(threshold_img).lower()
         
-        if len(locations)>0:
+
+
+        #FOR DEBUGGING
+        print(self.extract_text(threshold_img))
+        cv.imshow('haystack_masked_img.jpeg', threshold_img)
+        #cv.imshow('needle_masked_img.jpeg', text_needle.needle_img)
+        
+                #Need to upgrade this if, elif, else statement to handle cooking AND fishing (or any other scripts which require 2 skills at once)
+        #print("                " + extracted_text)
+        if "not" in extracted_text:
+        #    print("NOT")
+            return False
+        elif skill in extracted_text:
+        #    print("skill")
             return True
         else:
+        #    print("None")
             return False
+
+        # PREVIOUS VERSION where needle was attempted to be found in haystack
+        #if   "not" in skill: NOT=True
+        #else:                NOT=False
+        #
+        #if NOT: # "not" is in skilling text, look for red text
+        #    text_needle = Needle("Images\\skilling_" + skill +  ".jpg")
+        #    colour_limits = [[, ,  ], [, , ]] #Limits for RED
+        #else: #  "not" is not in skilling text, look for green text
+        #    text_needle = Needle("Images\\skilling_" + skill +  ".jpg")
+        #    colour_limits = [[0, 28,  0], [20, 255, 80]] #Limits for GREEN
+        #text_img = text_needle.needle_img        
+        #needle_mask =  cv.inRange(text_img, lower, upper)
+        #needle_masked_img = cv.bitwise_and(text_img, text_img, mask=needle_mask)
+        #result = cv.matchTemplate(haystack_masked_img, text_needle.needle_img, text_needle.method)
+        #locations = where(result >= 0.6)
+        #locations = list(zip(*locations[::-1]))
+        #if len(locations):
+        #    if self.debug: print("Images\\skilling_" + skill +  ".jpg has been FOUND")
+        #    return True
+        #else:
+        #    print("No skilling text has been identified")
+        #    return False
         #else:
         #    print("Can't tell if " + skill + " or not.... Setting check as False. :(")
         #    return False
     
+
+
     def open_inv(self):
         if self.debug: print(f"DEBUGGING:       opening inv ")
         if self.on_screen(inv_open_needle, region='inv', threshold=.8):
@@ -586,6 +737,7 @@ class Bot(Haystack,Needle):
         self.clickSleeper('inv_item')
         #click "up" to raise camera view
         self.key_press("up", uniform(1.91,2.82))
+        self.clickSleeper('closing_chat')
         #TO DO scroll out
         if scroll_out:
             pass
@@ -613,7 +765,7 @@ class Bot(Haystack,Needle):
         if self.debug: print(f"DEBUGGING:       counting gems")
         count=0
         for gem_needle in gem_needles:
-            count += len(self.find_img(gem_needle, self.inv_haystack, threshold=0.975))
+            count += len(self.find_img(gem_needle, self.inv_haystack, threshold=0.8))
         print(f"{count} gems in inventory")
         return count
     
@@ -623,9 +775,9 @@ class Bot(Haystack,Needle):
         if big: needle=all_icon_unselected_BIG
         else:   needle=all_icon_unselected
         
-        if self.on_screen(needle,region='client'): #region='client' is to be changed to 'deposit box'
+        if self.on_screen(needle,region='deposit_box'): #region='client' is to be changed to 'deposit box'
             print('all is unselected.')
-            self.click(self.find_img(needle,self.get_haystack('client')))
+            self.click(self.find_img(needle,self.get_haystack('deposit_box')))
             self.clickSleeper('all has been selected')
 
         #^^^    check_all_is_selected was very shotily put together, need to revise.
@@ -645,7 +797,7 @@ class Bot(Haystack,Needle):
                 self.clickSleeper('dropping_item')
 
     def despoit_box_is_open(self):
-        return self.on_screen(deposit_box__title, 'client')
+        return self.on_screen(deposit_box__title, 'deposit_box') #region='client' is to be changed to 'deposit box'
 
     ### --------------- BOT FUNCTIONS End --------------- ###
 
