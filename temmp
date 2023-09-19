@@ -1,0 +1,33 @@
+def despoit_box_is_open(self):
+        haystack_img, offset=self.get_haystack('deposit_box').get_screenshot()
+        #h,w,c = haystack_img.shape
+        #left=0
+        #right=w
+        #top=0
+        #bottom=40
+        #haystack_img = haystack_img[left:right,top:bottom]
+        colour_limits = [[20, 100,  200], [40, 200, 255]] #Limits for RED and GREEN
+        lower = array(colour_limits[0], dtype="uint8") #numpy.array() objects
+        upper = array(colour_limits[1], dtype="uint8")
+        haystack_mask = cv.inRange(haystack_img, lower, upper)
+        haystack_masked_img = cv.bitwise_and(haystack_img, haystack_img, mask=haystack_mask) 
+        #grayscale_img = cv.cvtColor(haystack_masked_img, cv.COLOR_BGR2GRAY)      
+        _, threshold_img = cv.threshold(haystack_masked_img, 40, 255, 0)
+
+        extracted_text=self.extract_text(threshold_img).lower()
+        
+        #FOR DEBUGGING
+        print(self.extract_text(haystack_img))
+        cv.imshow('haystack_masked_img.jpeg', haystack_img)
+        #cv.imshow('needle_masked_img.jpeg', text_needle.needle_img)
+        
+                #Need to upgrade this if, elif, else statement to handle cooking AND fishing (or any other scripts which require 2 skills at once)
+        #print("                " + extracted_text)
+        if ("bank" in extracted_text) or ("of" in extracted_text) or ("box" in extracted_text):
+        #    print("NOT")
+            return True
+        else:
+        #    print("None")
+            return False
+        # Previous version, good not great, could be buggy
+        #return self.on_screen(deposit_box__title, 'deposit_box') #region='client' is to be changed to 'deposit box'
