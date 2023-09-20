@@ -191,8 +191,8 @@ class Bot(Haystack,Needle):
     CHAT_SIZE = [520,170]
     CHAT_OFFSET_FROM_BL = [0,-CHAT_SIZE[1]] #[0,-166]
     CHAT_ALL_OFFSET_FROM_BL = [32,-15]
-    SKILLING_SIZE = [123,52]
-    SKILLING_OFFSET_FROM_TL = [5,60] #[0,0]
+    SKILLING_SIZE = [123,180]#52
+    SKILLING_OFFSET_FROM_TL = [5,4] #[0,0]
     COMPASS_OFFSET_FROM_TR = [-158, 21]
     DESPOSIT_BOX_OFFSET_INITIAL = [50,30]
     DESPOSIT_BOX_OFFSET_SIZE = [455,285]
@@ -649,7 +649,7 @@ class Bot(Haystack,Needle):
             self.clickSleeper('spam')
 
     def read_stat(self, stat, scale=7):
-        colour_limits = [[0, 0,  0], [20, 255, 20]] #Limits for GREEN
+        colour_limits = [[0, 0,  0], [0, 255, 0]] #Limits for GREEN
 
         lower = array(colour_limits[0], dtype="uint8") #numpy.array() objects
         upper = array(colour_limits[1], dtype="uint8")
@@ -673,7 +673,7 @@ class Bot(Haystack,Needle):
             self.clickSleeper('inv_item')
 
     def skilling_check(self, skill, config='--psm 1'):
-        colour_limits = [[0, 0,  0], [20, 255, 255]] #Limits for RED and GREEN
+        colour_limits = [[0, 0,  0], [0, 255, 255]] #Limits for RED and GREEN
 
         lower = array(colour_limits[0], dtype="uint8") #numpy.array() objects
         upper = array(colour_limits[1], dtype="uint8")
@@ -813,7 +813,7 @@ class Bot(Haystack,Needle):
             for coord in coords:
                 self.click(coord)
                 self.clickSleeper('dropping_item')
-                self.shortSleep()
+                self.shortSleep(40)
                 self.longSleep()
 
     def bank_is_open(self):

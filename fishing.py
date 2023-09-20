@@ -9,11 +9,11 @@ import cv2 as cv
 ### --------------- CONTROL PANEL --------------- ###
 CLIENT_NAME = 'Runelite - MouldyAss'
 RUN_DURATION_HOURS = 1 + normalvariate(.15,0.1)
-WHAT_FISH = ['shrimp']#['salmon', 'trout']
+WHAT_FISH = ['shrimp', 'anchovies']#['salmon', 'trout']
 COOK_FISH = False #TO DO
 FISHING_SPOT_COLOUR = 'blue'
 FIRE_COLOUR = 'green'
-DEBUG = False
+DEBUG = True
 
 
 
@@ -65,7 +65,7 @@ def fishing(client_name, run_duration_hours, fishing_spot_colour, debug):
             #screenshot, offset = bot.get_haystack('client').get_screenshot()
             haystack = bot.get_haystack('skilling')
             debug_img, offset = haystack.get_screenshot()
-            print(bot.skilling_check('fishing', config='--psm 1'))
+            print(bot.skilling_check('fishing', config='--psm 6'))
             #inv_haystack = bot.get_haystack('inv')
             #haystack_img, offset = haystack.get_screenshot()
             # Show screenshots  
@@ -133,5 +133,5 @@ def fishing(client_name, run_duration_hours, fishing_spot_colour, debug):
         if bot.state==botstate.COOKING:
             print('COOKING')
             continue
-        
+
 fishing(CLIENT_NAME, RUN_DURATION_HOURS, FISHING_SPOT_COLOUR, DEBUG)
