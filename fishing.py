@@ -7,12 +7,13 @@ import cv2 as cv
 
 
 ### --------------- CONTROL PANEL --------------- ###
-CLIENT_NAME = 'Runelite - Cram-o-matic'
-RUN_DURATION_HOURS = 1.9 + normalvariate(.15,0.1)
-DEBUG = False
-WHAT_FISH = ['salmon', 'trout']
+CLIENT_NAME = 'Runelite - MouldyAss'
+RUN_DURATION_HOURS = 1 + normalvariate(.15,0.1)
+WHAT_FISH = ['shrimp']#['salmon', 'trout']
 COOK_FISH = False #TO DO
-FISHING_SPOT_COLOUR = 'yellow'
+FISHING_SPOT_COLOUR = 'blue'
+FIRE_COLOUR = 'green'
+DEBUG = False
 
 
 
@@ -62,13 +63,14 @@ def fishing(client_name, run_duration_hours, fishing_spot_colour, debug):
             #bot.show_windows()
 
             #screenshot, offset = bot.get_haystack('client').get_screenshot()
-            haystack = bot.get_haystack('client')
+            haystack = bot.get_haystack('skilling')
             debug_img, offset = haystack.get_screenshot()
+            print(bot.skilling_check('fishing', config='--psm 1'))
             #inv_haystack = bot.get_haystack('inv')
             #haystack_img, offset = haystack.get_screenshot()
             # Show screenshots  
-            inv_open_coords=bot.find_img(inv_open, haystack, 0.8, debug_mode='rectangles',debug_img=debug_img)
-            inv_closed_coords=bot.find_img(inv_closed, haystack, 0.8, debug_mode='rectangles',debug_img=debug_img)
+            #inv_open_coords=bot.find_img(inv_open, haystack, 0.8, debug_mode='rectangles',debug_img=debug_img)
+            #inv_closed_coords=bot.find_img(inv_closed, haystack, 0.8, debug_mode='rectangles',debug_img=debug_img)
             #fishing_text_coords=bot.find_img(fishing_text, haystack, 0.6, debug_mode='rectangles',debug_img=debug_img)
             #fishing_text_not_coords=bot.find_img(fishing_not_text, haystack, 0.6, debug_mode='rectangles',debug_img=debug_img)
             #fish_needles_coords=bot.find_img(fish_needles[0], haystack, 0.975, debug_mode='rectangles',debug_img=debug_img)
@@ -85,7 +87,7 @@ def fishing(client_name, run_duration_hours, fishing_spot_colour, debug):
                 cv.destroyAllWindows()
                 break
 
-        # 1. Initialising
+        # 1. Initilising
         if bot.state==botstate.INITIALIZING:
             print("INITIALIZING")
             #click north and "up" arrow key (Add a scroll out?)
@@ -99,12 +101,13 @@ def fishing(client_name, run_duration_hours, fishing_spot_colour, debug):
             print("CHECKING_INV")
             a = bot.count_fish(fish_needles)
             b = bot.count_clues(None)
-            if a+b < 26: # space is avaliable in inv
+            if a+b < 27: # space is avaliable in inv
                 bot.state=botstate.FISHING
             else: # a+b => 26
                 if COOK_FISH == False:
                     bot.state=botstate.DROPPING_FISH
                 else: 
+                    bot.state=botstate.COOKING
                     print('Cooking fish is yet to be implemented')
 
         # 3. Fnding and Catching fish
@@ -117,7 +120,9 @@ def fishing(client_name, run_duration_hours, fishing_spot_colour, debug):
                 sleep(uniform(3,8)+uniform(-2,5) + normalvariate(0.5,0.12)) # Wait time while character moves to fishing spot
                 bot.shortSleep()
                 bot.longSleep()
-                bot.state=botstate.CHECKING_INV
+            sleep(uniform(2,4))
+            bot.state=botstate.CHECKING_INV
+
 
         # 4. Dropping fish
         if bot.state==botstate.DROPPING_FISH:
@@ -125,5 +130,8 @@ def fishing(client_name, run_duration_hours, fishing_spot_colour, debug):
             bot.drop_fish(fish_needles) #TO DO: Make a more natural dropping pattern. E.g left-right-right-left, maybe add randon check to miss one and go back.
             bot.state=botstate.FISHING
 
-
+        if bot.state==botstate.COOKING:
+            print('COOKING')
+            continue
+        
 fishing(CLIENT_NAME, RUN_DURATION_HOURS, FISHING_SPOT_COLOUR, DEBUG)

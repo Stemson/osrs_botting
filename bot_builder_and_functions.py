@@ -14,6 +14,10 @@ import pytesseract
 #NOTE to install pytesseract for image_to_text functions refer to https://stackoverflow.com/questions/50951955/pytesseract-tesseractnotfound-error-tesseract-is-not-installed-or-its-not-i
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
+
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+
 ### --------------- Needle and Haystack Classes Start --------------- ###
 class Needle:
 
@@ -166,6 +170,10 @@ class BotState:
     CHECKING_INV = 7
     DROPPING_FISH = 8
     MINING = 9
+    WOODCUTTING = 10
+    DROPPING_LOGS = 11
+    LIGHTING_FIRES = 12
+    COOKING = 13
 
 
 class Bot(Haystack,Needle):
@@ -174,7 +182,8 @@ class Bot(Haystack,Needle):
     THRESHOLD = 0.9                # Consider making individual thresholds for needles
     DEBUG_MODE = 'rectangles'
     RANDOMIZE_COORDS=True
-    BANK_REGION = [36,27, 484, 335] # [x,y,w,h] #TO DO: Update abnk region to be dynamic (similar to inv, chat, and skilling)
+    BANK_OFFSET_INITIAL = [34,3]
+    BANK_SIZE_INITIAL= [484,331] # [x,y,w,h] #TO DO: Update abnk region to be dynamic (similar to inv, chat, and skilling)
     GE_REGION = []
     INV_REGION = [580, 194, 172, 250] #Change to dimensions and offset_from_BR
     INV_SIZE = [250,370]
@@ -182,8 +191,8 @@ class Bot(Haystack,Needle):
     CHAT_SIZE = [520,170]
     CHAT_OFFSET_FROM_BL = [0,-CHAT_SIZE[1]] #[0,-166]
     CHAT_ALL_OFFSET_FROM_BL = [32,-15]
-    SKILLING_SIZE = [175,200]
-    SKILLING_OFFSET_FROM_TL = [0,0] #[0,0]
+    SKILLING_SIZE = [123,52]
+    SKILLING_OFFSET_FROM_TL = [5,60] #[0,0]
     COMPASS_OFFSET_FROM_TR = [-158, 21]
     DESPOSIT_BOX_OFFSET_INITIAL = [50,30]
     DESPOSIT_BOX_OFFSET_SIZE = [455,285]
@@ -214,7 +223,7 @@ class Bot(Haystack,Needle):
     inv_region=[]
     chat_region=[]
     skilling_region=[]
-    #bank_region=[]
+    bank_region=[]
     deposit_box_region=[]
     hp_region=[]
     prayer_region=[]
@@ -237,12 +246,21 @@ class Bot(Haystack,Needle):
         self.bottom_left    = [self.client_haystack.offset_x , self.client_haystack.offset_y + self.client_haystack.h]
         self.bottom_right   = [self.client_haystack.offset_x + self.client_haystack.w, self.client_haystack.offset_y + self.client_haystack.h]
         self.centre         = [self.client_haystack.offset_x+int(self.client_haystack.w/2) ,self.client_haystack.offset_y+int(self.client_haystack.h/2) ]
-        # bank_region = 
-        # self.bank_haystack   = Haystack(client_name, cropped_region=bank_region)
         self.inv_region      = append(add(self.bottom_right,self.INV_OFFSET_FROM_BR),self.INV_SIZE) #[x,y,w,h]
         self.chat_region     = append(add(self.bottom_left,self.CHAT_OFFSET_FROM_BL),self.CHAT_SIZE) #[x,y,w,h]
         self.skilling_region = append(add(self.top_left,self.SKILLING_OFFSET_FROM_TL),self.SKILLING_SIZE) #[x,y,w,h]
-        # self.bank_haystack   = Haystack(client_name, cropped_region=bank_region)
+        # The bank offest is not linear, it is a hybrid function depending on whether the hight of the handle is <967 or >=967 
+        # This is the point where the chat window and bank window seperate. 
+        if self.client_haystack.h < 967:
+            self.bank_region = append(add(self.top_left,
+                                          add(self.BANK_OFFSET_INITIAL,[int((self.client_haystack.w-self.CLIENT_SIZE_INTIAL[0])/2),0])),
+                                      add(self.BANK_SIZE_INITIAL, [0, int(self.client_haystack.h-self.CLIENT_SIZE_INTIAL[1])]))
+        else: 
+            extra_h = self.client_haystack.h-463
+            BANK_OFFSET = add(self.BANK_OFFSET_INITIAL, [int((self.client_haystack.w-self.CLIENT_SIZE_INTIAL[0])/2), int(extra_h/2)]) 
+            BANK_SIZE = add(self.BANK_SIZE_INITIAL, [0,int(463+(extra_h/2))])
+            self.bank_region = append(add(self.top_left, BANK_OFFSET),BANK_SIZE)
+
         self.deposit_box_region = append(add(self.top_left,
                                             add([int((self.client_haystack.w-self.CLIENT_SIZE_INTIAL[0])/2),int((self.client_haystack.h-self.CLIENT_SIZE_INTIAL[1])/2)],self.DESPOSIT_BOX_OFFSET_INITIAL))
                                         , self.DESPOSIT_BOX_OFFSET_SIZE)
@@ -254,7 +272,7 @@ class Bot(Haystack,Needle):
         self.inv_haystack      = Haystack(client_name, cropped_region=self.inv_region)
         self.chat_haystack     = Haystack(client_name, cropped_region=self.chat_region)
         self.skilling_haystack = Haystack(client_name, cropped_region=self.skilling_region)
-        #self.bank = Haystack(client_name, cropped_region=self.bank)
+        self.bank_haystack     = Haystack(client_name, cropped_region=self.bank_region)
         self.deposit_box_haystack  = Haystack(client_name, cropped_region=self.deposit_box_region)
         self.health_haystack       = Haystack(client_name, cropped_region=self.health_region)
         self.prayer_haystack       = Haystack(client_name, cropped_region=self.prayer_region)
@@ -397,7 +415,7 @@ class Bot(Haystack,Needle):
     def get_haystack(self, region='client'):
         #if self.debug: print(f"DEBUGGING: getting haystack for {region}")
         if   region == 'client':       return self.client_haystack
-       #elif region == 'bank':         return self.bank_haystack
+        elif region == 'bank':         return self.bank_haystack
         elif region == 'inv':          return self.inv_haystack
         elif region == 'skilling':     return self.skilling_haystack
         elif region == 'chat':         return self.chat_haystack
@@ -418,9 +436,9 @@ class Bot(Haystack,Needle):
     def find_contours(self, colour, region="client", key='dist', ignore_region=[0,0,0,0], debug=False, debug_img=None):
         if self.debug: print(f"DEBUGGING: find contours for {colour}")
         # lower and upper BGR values (NOT RGB!!)
-        if   colour == 'blue':  colour_limits = [[67, 67,  0], [215, 215,  47]]
-        elif colour == 'green': colour_limits = [[0, 120,  0], [20, 255, 40]]
-        elif colour == 'yellow':colour_limits = [[0, 120,120], [50, 255, 255]] 
+        if   colour == 'blue':  colour_limits = [[150, 67,  0], [215, 215,  47]]
+        elif colour == 'green': colour_limits = [[0, 190,  0], [20, 255, 20]]
+        elif colour == 'yellow':colour_limits = [[0, 150,150], [50, 255, 255]] 
         elif colour == 'red':   colour_limits = [[0, 0,  28], [28, 28, 255]] # RED is bugging when used on 'client' since lots of red icons
         elif False: pass #TO DO: ADD OTHER COLOURS, RED AND BLUE
         else: print('No colour has been specified')
@@ -587,9 +605,6 @@ class Bot(Haystack,Needle):
         extracted_text = pytesseract.image_to_string(image, lang=lang, config=config) # --psm 6 -> Assume a single uniform block of text.
         processed_text = ' '.join(extracted_text.split())
         return processed_text
-
-    def bank_is_open(self):
-        return self.on_screen(bank_title, region='bank')
         
     def open_bank(self):
         for i in range(randint(2,4)+randint(0,3)+randint(0,1)):
@@ -657,7 +672,7 @@ class Bot(Haystack,Needle):
             self.click(coord, randomizeCoord=False)
             self.clickSleeper('inv_item')
 
-    def skilling_check(self, skill):
+    def skilling_check(self, skill, config='--psm 1'):
         colour_limits = [[0, 0,  0], [20, 255, 255]] #Limits for RED and GREEN
 
         lower = array(colour_limits[0], dtype="uint8") #numpy.array() objects
@@ -665,17 +680,16 @@ class Bot(Haystack,Needle):
 
         haystack_img, offset = self.get_haystack('skilling').get_screenshot()
         haystack_mask = cv.inRange(haystack_img, lower, upper)
-        haystack_masked_img = cv.bitwise_and(haystack_img, haystack_img, mask=haystack_mask) 
-        #grayscale_img = cv.cvtColor(haystack_masked_img, cv.COLOR_BGR2GRAY)      
-        _, threshold_img = cv.threshold(haystack_masked_img, 40, 255, 0)
+        haystack_masked_img = cv.bitwise_and(haystack_img, haystack_img, mask=haystack_mask)      
+        _, haystack_masked_img = cv.threshold(haystack_masked_img, 40, 255, 0)
+        haystack_masked_img = cv.cvtColor(haystack_masked_img, cv.COLOR_BGR2GRAY) 
 
-        extracted_text=self.extract_text(threshold_img).lower()
+        extracted_text=self.extract_text(haystack_masked_img, config=config).lower()
         
-
-
         #FOR DEBUGGING
-        print(self.extract_text(threshold_img))
-        cv.imshow('haystack_masked_img.jpeg', threshold_img)
+        if self.debug:
+            print(f'Skilling text: {self.extract_text(haystack_masked_img)}')
+            cv.imshow('haystack_masked_img.jpeg', haystack_masked_img)
         #cv.imshow('needle_masked_img.jpeg', text_needle.needle_img)
         
                 #Need to upgrade this if, elif, else statement to handle cooking AND fishing (or any other scripts which require 2 skills at once)
@@ -787,6 +801,10 @@ class Bot(Haystack,Needle):
         #if self.debug: print(f"DEBUGGING:       counting clues")
         return 0 #TO DO
     
+    def count_bird_nests(self, skill=None):
+        #if self.debug: print(f"DEBUGGING:       counting clues")
+        return 0 #TO DO
+    
     def drop_fish(self, fish_needles): #ASSUMPTIONS: Left-click has been swapped with 'drop'. TO DO: Cooked fish
         if self.debug: print(f"DEBUGGING:       dropping fish")
         for fish_needle in fish_needles:
@@ -795,10 +813,101 @@ class Bot(Haystack,Needle):
             for coord in coords:
                 self.click(coord)
                 self.clickSleeper('dropping_item')
+                self.shortSleep()
+                self.longSleep()
 
+    def bank_is_open(self):
+        haystack_img, offset=self.get_haystack('bank').get_screenshot()
+        w,h,c = haystack_img.shape
+        left=60
+        right=w-375
+        top=5
+        bottom=30
+        haystack_img = haystack_img[top:bottom, left:right]
+        colour_limits = [[20, 100,  200], [40, 200, 255]] #Limits for RED and GREEN
+        lower = array(colour_limits[0], dtype="uint8") #numpy.array() objects
+        upper = array(colour_limits[1], dtype="uint8")
+        haystack_mask = cv.inRange(haystack_img, lower, upper)
+        haystack_masked_img = cv.bitwise_and(haystack_img, haystack_img, mask=haystack_mask) 
+        #grayscale_img = cv.cvtColor(haystack_masked_img, cv.COLOR_BGR2GRAY)      
+        _, haystack_img = cv.threshold(haystack_masked_img, 40, 255, 0)
+
+        extracted_text=self.extract_text(haystack_img).lower()
+        
+        #FOR DEBUGGING
+        #print(self.extract_text(haystack_img))
+        #cv.imshow('haystack_masked_img.jpeg', haystack_img)
+        #cv.imshow('needle_masked_img.jpeg', text_needle.needle_img)
+        
+                #Need to upgrade this if, elif, else statement to handle cooking AND fishing (or any other scripts which require 2 skills at once)
+        #print("                " + extracted_text)
+        if ("the" in extracted_text) or ("bank" in extracted_text) or ("of" in extracted_text):
+            print("Yes")
+            return True
+        else:
+            print("No")
+            return False
+        # Previous version, good not great, could be buggy
+        #return self.on_screen(deposit_box__title, 'deposit_box') #region='client' is to be changed to 'deposit box'
+        
+        
+        #return self.on_screen(bank_title, region='bank')
+    
     def despoit_box_is_open(self):
-        return self.on_screen(deposit_box__title, 'deposit_box') #region='client' is to be changed to 'deposit box'
+        haystack_img, offset=self.get_haystack('deposit_box').get_screenshot()
+        w,h,c = haystack_img.shape
+        left=60
+        right=w-375
+        top=5
+        bottom=30
+        haystack_img = haystack_img[top:bottom, left:right]
+        colour_limits = [[20, 100,  200], [40, 200, 255]] #Limits for RED and GREEN
+        lower = array(colour_limits[0], dtype="uint8") #numpy.array() objects
+        upper = array(colour_limits[1], dtype="uint8")
+        haystack_mask = cv.inRange(haystack_img, lower, upper)
+        haystack_masked_img = cv.bitwise_and(haystack_img, haystack_img, mask=haystack_mask) 
+        #grayscale_img = cv.cvtColor(haystack_masked_img, cv.COLOR_BGR2GRAY)      
+        _, threshold_img = cv.threshold(haystack_masked_img, 40, 255, 0)
 
+        extracted_text=self.extract_text(threshold_img).lower()
+        
+        #FOR DEBUGGING
+        print(self.extract_text(haystack_img))
+        cv.imshow('haystack_masked_img.jpeg', haystack_img)
+        #cv.imshow('needle_masked_img.jpeg', text_needle.needle_img)
+        
+                #Need to upgrade this if, elif, else statement to handle cooking AND fishing (or any other scripts which require 2 skills at once)
+        #print("                " + extracted_text)
+        if ("the" in extracted_text) or ("bank" in extracted_text) or ("of" in extracted_text):
+        #    print("NOT")
+            return True
+        else:
+        #    print("None")
+            return False
+        # Previous version, good not great, could be buggy
+        #return self.on_screen(deposit_box__title, 'deposit_box') #region='client' is to be changed to 'deposit box'
+
+    def count_logs(self, log_needle):
+        if self.debug: print(f"DEBUGGING:       counting logs")
+        count=0
+        count += len(self.find_img(log_needle,self.inv_haystack, threshold=0.9))
+        print(f"{count} logs in inventory")
+        return count
+
+    def drop_logs(self, log_needle): #ASSUMPTIONS: Left-click has been swapped with 'drop'. TO DO: Cooked fish
+        if self.debug: print(f"DEBUGGING:       dropping logs")
+        coords = self.find_img(log_needle,self.inv_haystack)
+        sorted(coords)
+        for coord in coords:
+            self.click(coord)
+            self.clickSleeper('dropping_item')
+            self.shortSleep()
+            self.longSleep()
+
+    def click_item_in_inv(self, needle):
+        coords = self.find_img(needle, self.get_haystack('inv'))
+        self.click(coords[randint(0,len(coords)-1)])
+        self.clickSleeper('inv')
     ### --------------- BOT FUNCTIONS End --------------- ###
 
 
