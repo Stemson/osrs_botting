@@ -4,16 +4,14 @@ from bot_builder_and_functions import Bot, BotState, Needle, Haystack
 import os
 import cv2 as cv
 
-
-
 ### --------------- CONTROL PANEL --------------- ###
 CLIENT_NAME = 'Runelite - MouldyAss'
 RUN_DURATION_HOURS = 1 + normalvariate(.15,0.1)
-WHAT_FISH = ['shrimp', 'anchovies']#['salmon', 'trout']
+WHAT_FISH = ['shrimp']#['salmon', 'trout']
 COOK_FISH = False #TO DO
 FISHING_SPOT_COLOUR = 'blue'
 FIRE_COLOUR = 'green'
-DEBUG = True
+DEBUG = False
 
 
 
@@ -46,11 +44,11 @@ if COOK_FISH: #UNTESTED
 
 
 ### --------------- Fishing Function --------------- ###
-def fishing(client_name, run_duration_hours, fishing_spot_colour, debug):
+def fishing(client_name, run_duration_hours, what_fish, fishing_spot_colour, debug):
 
+    fish_needles = [Needle(f'Images\\{fish}.jpg') for fish in what_fish] 
     bot = Bot(client_name=client_name, debug=debug)
     botstate=BotState()
-    global COOK_FISH
 
     time_start=time()
     t_end = time_start + (60 * 60 * run_duration_hours)
@@ -65,7 +63,7 @@ def fishing(client_name, run_duration_hours, fishing_spot_colour, debug):
             #screenshot, offset = bot.get_haystack('client').get_screenshot()
             haystack = bot.get_haystack('skilling')
             debug_img, offset = haystack.get_screenshot()
-            print(bot.skilling_check('fishing', config='--psm 6'))
+            print(bot.skilling_check('fishing', config='--psm 1'))
             #inv_haystack = bot.get_haystack('inv')
             #haystack_img, offset = haystack.get_screenshot()
             # Show screenshots  
@@ -104,7 +102,7 @@ def fishing(client_name, run_duration_hours, fishing_spot_colour, debug):
             if a+b < 27: # space is avaliable in inv
                 bot.state=botstate.FISHING
             else: # a+b => 26
-                if COOK_FISH == False:
+                if COOK_FISH == True:
                     bot.state=botstate.DROPPING_FISH
                 else: 
                     bot.state=botstate.COOKING
@@ -130,8 +128,23 @@ def fishing(client_name, run_duration_hours, fishing_spot_colour, debug):
             bot.drop_fish(fish_needles) #TO DO: Make a more natural dropping pattern. E.g left-right-right-left, maybe add randon check to miss one and go back.
             bot.state=botstate.FISHING
 
+"""
         if bot.state==botstate.COOKING:
             print('COOKING')
-            continue
-
-fishing(CLIENT_NAME, RUN_DURATION_HOURS, FISHING_SPOT_COLOUR, DEBUG)
+            if bot.cooking_panel_is_open():
+                bot.start_cooking() # just a 'press space' function
+                bot.state=botstate.COOKING
+            elif bot.skilling_check('cooking'): 
+                pass
+            else:
+                fire_spot=bot.find_contours(FIRE_COLOUR,'client',key='max_area', ignore_region='inv')
+                if fire_spot: 
+                    bot.click(fire_spot)
+                    bot.click(fire_spot)
+                    sleep(uniform(1.2,3) + normalvariate(0.5,0.12))
+                else:
+                    print('No "fire colour" has been identified')
+                
+"""
+        
+fishing(CLIENT_NAME, RUN_DURATION_HOURS, WHAT_FISH, FISHING_SPOT_COLOUR, DEBUG)
