@@ -158,7 +158,7 @@ class Haystack:
 
 ### --------------- BUILDING BOT --------------- ###
 
-class BotState: 
+class BotState: #(enum class)
     #Constants
     INITIALIZING = 0
     OPENING_BANK = 1
@@ -188,10 +188,10 @@ class Bot(Haystack,Needle):
     INV_REGION = [580, 194, 172, 250] #Change to dimensions and offset_from_BR
     INV_SIZE = [250,370]
     INV_OFFSET_FROM_BR = [-1*x for x in INV_SIZE] #[-200,-344]  #ASSUMPTION: Both menu bars are stacked. i.e. game window wisth is less than 990 pixels. 
-    CHAT_SIZE = [520,170]
-    CHAT_OFFSET_FROM_BL = [0,-CHAT_SIZE[1]] #[0,-166]
+    CHAT_SIZE = [475,130] #[520,160]  - to include the bottom row of tabs 
+    CHAT_OFFSET_FROM_BL = [5,-CHAT_SIZE[1]-28] #[0,-166]
     CHAT_ALL_OFFSET_FROM_BL = [32,-15]
-    SKILLING_SIZE = [123,180]#52
+    SKILLING_SIZE = [123,180]
     SKILLING_OFFSET_FROM_TL = [5,4] #[0,0]
     COMPASS_OFFSET_FROM_TR = [-158, 21]
     DESPOSIT_BOX_OFFSET_INITIAL = [50,30]
@@ -605,6 +605,32 @@ class Bot(Haystack,Needle):
         extracted_text = pytesseract.image_to_string(image, lang=lang, config=config) # --psm 6 -> Assume a single uniform block of text.
         processed_text = ' '.join(extracted_text.split())
         return processed_text
+    
+    def read_chat(self, type, config='--psm 1'):
+        if type=='skilling': colour_limits = [[30, 46,  62], [35, 50, 66]]
+        elif type=='public': colour_limits = [[250, 0,  0], [255, 0, 0]] #Limits for Blue and GREEN
+        elif type=='game':   colour_limits = [[0, 0,  0], [1, 1, 1]]
+
+        lower = array(colour_limits[0], dtype="uint8") #numpy.array() objects
+        upper = array(colour_limits[1], dtype="uint8")
+
+        haystack_img, offset = self.get_haystack('chat').get_screenshot()
+        haystack_mask = cv.inRange(haystack_img, lower, upper)
+        if type=='game': haystack_mask = 255 - haystack_mask
+        haystack_masked_img = cv.bitwise_and(haystack_img, haystack_img, mask=haystack_mask)      
+        _, haystack_masked_img = cv.threshold(haystack_masked_img, 40, 255, 0)
+        haystack_masked_img = cv.cvtColor(haystack_masked_img, cv.COLOR_BGR2GRAY) 
+
+        extracted_text=self.extract_text(haystack_masked_img, config=config).lower()
+        
+        #FOR DEBUGGING
+        if self.debug:
+            print(f'Text from chat ({type}): {self.extract_text(haystack_masked_img)}')
+            cv.imshow('haystack_masked_img.jpeg', haystack_masked_img)
+        #cv.imshow('needle_masked_img.jpeg', text_needle.needle_img)
+
+        return extracted_text
+        
         
     def open_bank(self):
         for i in range(randint(2,4)+randint(0,3)+randint(0,1)):
@@ -649,7 +675,7 @@ class Bot(Haystack,Needle):
             self.clickSleeper('spam')
 
     def read_stat(self, stat, scale=7):
-        colour_limits = [[0, 0,  0], [0, 255, 0]] #Limits for GREEN
+        colour_limits = [[0, 0,  0], [20, 255, 20]] #Limits for GREEN
 
         lower = array(colour_limits[0], dtype="uint8") #numpy.array() objects
         upper = array(colour_limits[1], dtype="uint8")
@@ -694,7 +720,7 @@ class Bot(Haystack,Needle):
         
                 #Need to upgrade this if, elif, else statement to handle cooking AND fishing (or any other scripts which require 2 skills at once)
         #print("                " + extracted_text)
-        if "not" in extracted_text:
+        if f"not {skill}" in extracted_text:
         #    print("NOT")
             return False
         elif skill in extracted_text:
@@ -703,34 +729,6 @@ class Bot(Haystack,Needle):
         else:
         #    print("None")
             return False
-
-        # PREVIOUS VERSION where needle was attempted to be found in haystack
-        #if   "not" in skill: NOT=True
-        #else:                NOT=False
-        #
-        #if NOT: # "not" is in skilling text, look for red text
-        #    text_needle = Needle("Images\\skilling_" + skill +  ".jpg")
-        #    colour_limits = [[, ,  ], [, , ]] #Limits for RED
-        #else: #  "not" is not in skilling text, look for green text
-        #    text_needle = Needle("Images\\skilling_" + skill +  ".jpg")
-        #    colour_limits = [[0, 28,  0], [20, 255, 80]] #Limits for GREEN
-        #text_img = text_needle.needle_img        
-        #needle_mask =  cv.inRange(text_img, lower, upper)
-        #needle_masked_img = cv.bitwise_and(text_img, text_img, mask=needle_mask)
-        #result = cv.matchTemplate(haystack_masked_img, text_needle.needle_img, text_needle.method)
-        #locations = where(result >= 0.6)
-        #locations = list(zip(*locations[::-1]))
-        #if len(locations):
-        #    if self.debug: print("Images\\skilling_" + skill +  ".jpg has been FOUND")
-        #    return True
-        #else:
-        #    print("No skilling text has been identified")
-        #    return False
-        #else:
-        #    print("Can't tell if " + skill + " or not.... Setting check as False. :(")
-        #    return False
-    
-
 
     def open_inv(self):
         if self.debug: print(f"DEBUGGING:       opening inv ")
@@ -771,7 +769,7 @@ class Bot(Haystack,Needle):
         if self.debug: print(f"DEBUGGING:       counting fish")
         count=0
         for fish_needle in fish_needles:
-            count += len(self.find_img(fish_needle,self.inv_haystack, threshold=0.975))
+            count += len(self.find_img(fish_needle, self.inv_haystack, threshold=0.96))
         print(f"{count} fish in inventory")
         return count
     
@@ -793,7 +791,6 @@ class Bot(Haystack,Needle):
             print('all is unselected.')
             self.click(self.find_img(needle,self.get_haystack('deposit_box')))
             self.clickSleeper('all has been selected')
-
         #^^^    check_all_is_selected was very shotily put together, need to revise.
 
 
@@ -807,14 +804,15 @@ class Bot(Haystack,Needle):
     
     def drop_fish(self, fish_needles): #ASSUMPTIONS: Left-click has been swapped with 'drop'. TO DO: Cooked fish
         if self.debug: print(f"DEBUGGING:       dropping fish")
+        coords=[]
         for fish_needle in fish_needles:
-            coords = self.find_img(fish_needle,self.inv_haystack)
-            sorted(coords)
-            for coord in coords:
-                self.click(coord)
-                self.clickSleeper('dropping_item')
-                self.shortSleep(40)
-                self.longSleep()
+            coords += self.find_img(fish_needle,self.inv_haystack, threshold=0.96)
+        coords=sorted(coords)
+        for coord in coords:
+            self.click(coord)
+            self.clickSleeper('dropping_item')
+            self.shortSleep(80)
+            self.longSleep(300)
 
     def bank_is_open(self):
         haystack_img, offset=self.get_haystack('bank').get_screenshot()
@@ -908,6 +906,21 @@ class Bot(Haystack,Needle):
         coords = self.find_img(needle, self.get_haystack('inv'))
         self.click(coords[randint(0,len(coords)-1)])
         self.clickSleeper('inv')
+
+    def cooking_panel_is_open(self):      
+        extracted_text = self.read_chat('skilling')
+        if ("would" in extracted_text) or ("like" in extracted_text) or ("cook" in extracted_text):
+        #    print("NOT")
+            return True
+        else:
+        #    print("None")
+            return False
+
+    def start_cooking(self):
+        self.key_press('space')
+        self.clickSleeper('inv_tem')
+        sleep(uniform(1,2))
+        pass
     ### --------------- BOT FUNCTIONS End --------------- ###
 
 
@@ -927,4 +940,5 @@ inv_closed_needle =     Needle('Images\\inv_closed.jpg')
 chat_open_needle =      Needle('Images\\press_enter_to_chat.jpg')
 all_icon_unselected_BIG =   Needle('Images\\all_icon_unselected_BIG.jpg')
 all_icon_selected_BIG =     Needle('Images\\all_icon_selected_BIG.jpg')
-deposit_box__title=     Needle('Images\\deposit_box_title.jpg')
+deposit_box_title=     Needle('Images\\deposit_box_title.jpg')
+cooking_prompt =        Needle('Images\\how_many_would_you_like_to_cook.jpg')

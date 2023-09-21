@@ -7,75 +7,48 @@ import cv2 as cv
 ### --------------- CONTROL PANEL --------------- ###
 CLIENT_NAME = 'Runelite - MouldyAss'
 RUN_DURATION_HOURS = 1 + normalvariate(.15,0.1)
-WHAT_FISH = ['shrimp']#['salmon', 'trout']
-COOK_FISH = False #TO DO
+WHAT_FISH = ['trout', 'salmon']  #['shrimp', anchovies']
+COOK_FISH = True 
 FISHING_SPOT_COLOUR = 'blue'
-FIRE_COLOUR = 'green'
+COOKING_COLOUR = 'green'
 DEBUG = False
-
 
 
 ### --------------- FIXED SETTINGS FOR ALL BOTS --------------- ###
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 
-### --------------- NEEDLES FOR Fishing --------------- ###
-
-# Fishing Specific
-fishing_text        = Needle('Images\\skilling_fishing.jpg')
-fishing_not_text    = Needle('Images\\skilling_fishing_not.jpg') #Unused
-fish_needles        = [Needle(f'Images\\{fish}.jpg') for fish in WHAT_FISH] 
-
-# Inv Specific
-inv_closed          = Needle('Images\\inv_closed.jpg')
-inv_open            = Needle('Images\\inv_open.jpg')
-inv_full            = Needle('Images\\you_cant_carry_any_more_fish.jpg')
-
-# Chat Speccific
-#chat_open_needle    = Needle('Images\\press_enter_to_chat.jpg')
-
-# Bank Specific
-# None
-
-if COOK_FISH: #UNTESTED
-    cooked_fish = ['cooked_'+fish for fish in WHAT_FISH]
-    cooked_fish_needles = [Needle(x) for x in cooked_fish]
-
-
 
 ### --------------- Fishing Function --------------- ###
-def fishing(client_name, run_duration_hours, what_fish, fishing_spot_colour, debug):
+def fishing(client_name, run_duration_hours, what_fish, fishing_spot_colour, cook_fish, cooking_colour, debug):
 
-    fish_needles = [Needle(f'Images\\{fish}.jpg') for fish in what_fish] 
     bot = Bot(client_name=client_name, debug=debug)
     botstate=BotState()
-
+    bot.state=botstate.INITIALIZING
     time_start=time()
     t_end = time_start + (60 * 60 * run_duration_hours)
 
-    bot.state=botstate.INITIALIZING
+    #Fishing specific needles
+    fish_needles = [Needle(f'Images\\{fish}.jpg') for fish in what_fish] 
+    if cook_fish: 
+        fish_cooked_needles = [Needle(f'Images\\{fish}_cooked.jpg') for fish in what_fish] + [Needle(f'Images\\{fish}_burnt.jpg') for fish in what_fish] 
+        if 'trout' and 'salmon' in what_fish:
+            fish_cooked_needles.pop() #Salmon and trout have the same burnt fish icon, if both are present one must be removed to avoid double counting.
+    else:         fish_cooked_needles = []
+    fish_all_needles = fish_needles+fish_cooked_needles
+
+    inv_full_count = 28
+    if   'trout'  in what_fish: inv_full_count -= 2
+    elif 'shrimp' in what_fish: inv_full_count -= 1
+    elif True: pass # ADD NEW FISH HERE
 
     while t_end > time():
 
         if DEBUG:
-            #bot.show_windows()
-
-            #screenshot, offset = bot.get_haystack('client').get_screenshot()
-            haystack = bot.get_haystack('skilling')
+            haystack = bot.get_haystack('chat') 
             debug_img, offset = haystack.get_screenshot()
-            print(bot.skilling_check('fishing', config='--psm 1'))
-            #inv_haystack = bot.get_haystack('inv')
-            #haystack_img, offset = haystack.get_screenshot()
-            # Show screenshots  
-            #inv_open_coords=bot.find_img(inv_open, haystack, 0.8, debug_mode='rectangles',debug_img=debug_img)
-            #inv_closed_coords=bot.find_img(inv_closed, haystack, 0.8, debug_mode='rectangles',debug_img=debug_img)
-            #fishing_text_coords=bot.find_img(fishing_text, haystack, 0.6, debug_mode='rectangles',debug_img=debug_img)
-            #fishing_text_not_coords=bot.find_img(fishing_not_text, haystack, 0.6, debug_mode='rectangles',debug_img=debug_img)
-            #fish_needles_coords=bot.find_img(fish_needles[0], haystack, 0.975, debug_mode='rectangles',debug_img=debug_img)
-            #fish_needles_coords=bot.find_img(fish_needles[1], haystack, 0.975, debug_mode='rectangles',debug_img=debug_img)
-            #fishing_spot_contours_coords=bot.find_contours(fishing_spot_colour, "client", debug_img=debug_img)
-            #inv_full_coords=bot.find_img(inv_full, haystack, 0.8, debug_mode='rectangles',debug_img=debug_img)
-            #chat_open_coords=bot.find_img(chat_open_needle, haystack, 0.8, debug_mode='rectangles',debug_img=debug_img)
+            #bot.find_img(Needle('Images\\how_many_would_you_like_to_cook.jpg'), haystack, threshold=0.1,debug_img=debug_img)
+            bot.read_chat('skilling')
             cv.imshow('DEBUG.jpeg', debug_img)
             # Saving a screenshot when 's' is pressed
             if cv.waitKey(1) == ord('s'):
@@ -84,7 +57,6 @@ def fishing(client_name, run_duration_hours, what_fish, fishing_spot_colour, deb
             if cv.waitKey(1) == ord('q'):
                 cv.destroyAllWindows()
                 break
-
         # 1. Initilising
         if bot.state==botstate.INITIALIZING:
             print("INITIALIZING")
@@ -97,16 +69,15 @@ def fishing(client_name, run_duration_hours, what_fish, fishing_spot_colour, deb
         # 2. Checking Inventory
         if bot.state==botstate.CHECKING_INV:
             print("CHECKING_INV")
-            a = bot.count_fish(fish_needles)
+            a = bot.count_fish(fish_all_needles)
             b = bot.count_clues(None)
-            if a+b < 27: # space is avaliable in inv
+            if a+b < inv_full_count: # space is avaliable in inv
                 bot.state=botstate.FISHING
-            else: # a+b => 26
-                if COOK_FISH == True:
+            else: # a+b => inv_full_count
+                if cook_fish == False:
                     bot.state=botstate.DROPPING_FISH
                 else: 
                     bot.state=botstate.COOKING
-                    print('Cooking fish is yet to be implemented')
 
         # 3. Fnding and Catching fish
         if bot.state==botstate.FISHING:
@@ -125,26 +96,28 @@ def fishing(client_name, run_duration_hours, what_fish, fishing_spot_colour, deb
         # 4. Dropping fish
         if bot.state==botstate.DROPPING_FISH:
             print("DROPPING_FISH")
-            bot.drop_fish(fish_needles) #TO DO: Make a more natural dropping pattern. E.g left-right-right-left, maybe add randon check to miss one and go back.
+            bot.drop_fish(fish_all_needles) #TO DO: Make a more natural dropping pattern. E.g left-right-right-left, maybe add randon check to miss one and go back.
             bot.state=botstate.FISHING
 
-"""
         if bot.state==botstate.COOKING:
             print('COOKING')
             if bot.cooking_panel_is_open():
                 bot.start_cooking() # just a 'press space' function
                 bot.state=botstate.COOKING
             elif bot.skilling_check('cooking'): 
+                sleep(uniform(2,4))
                 pass
             else:
-                fire_spot=bot.find_contours(FIRE_COLOUR,'client',key='max_area', ignore_region='inv')
-                if fire_spot: 
-                    bot.click(fire_spot)
-                    bot.click(fire_spot)
-                    sleep(uniform(1.2,3) + normalvariate(0.5,0.12))
+                cooked_fish=bot.count_fish(fish_cooked_needles)
+                if cooked_fish<inv_full_count:
+                    cook_spot=bot.find_contours(cooking_colour,'client',key='max_area', ignore_region='inv')
+                    if cook_spot: 
+                        bot.click(cook_spot)
+                        bot.click(cook_spot)
+                        sleep(uniform(1.2,3) + normalvariate(0.5,0.12))
+                    else:
+                        print('No "cooking colour" has been identified')
                 else:
-                    print('No "fire colour" has been identified')
-                
-"""
-        
-fishing(CLIENT_NAME, RUN_DURATION_HOURS, WHAT_FISH, FISHING_SPOT_COLOUR, DEBUG)
+                    bot.state=botstate.DROPPING_FISH
+
+fishing(CLIENT_NAME, RUN_DURATION_HOURS, WHAT_FISH, FISHING_SPOT_COLOUR, COOK_FISH, COOKING_COLOUR, DEBUG)
