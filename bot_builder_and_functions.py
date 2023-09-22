@@ -436,7 +436,7 @@ class Bot(Haystack,Needle):
     def find_contours(self, colour, region="client", key='dist', ignore_region=[0,0,0,0], debug=False, debug_img=None):
         if self.debug: print(f"DEBUGGING: find contours for {colour}")
         # lower and upper BGR values (NOT RGB!!)
-        if   colour == 'blue':  colour_limits = [[150, 67,  0], [215, 215,  47]]
+        if   colour == 'blue':  colour_limits = [[150, 0,  0], [255, 20,  20]]
         elif colour == 'green': colour_limits = [[0, 190,  0], [20, 255, 20]]
         elif colour == 'yellow':colour_limits = [[0, 150,150], [50, 255, 255]] 
         elif colour == 'red':   colour_limits = [[0, 0,  28], [28, 28, 255]] # RED is bugging when used on 'client' since lots of red icons
@@ -697,6 +697,38 @@ class Bot(Haystack,Needle):
             coord=(uniform(x,x+w),uniform(y,y+h))
             self.click(coord, randomizeCoord=False)
             self.clickSleeper('inv_item')
+    
+    def monster_is_dead(self, config='--psm 1'):
+        colour_limits = [[254, 254, 254], [255, 255, 255]] #Limits for RED and GREEN
+
+        lower = array(colour_limits[0], dtype="uint8") #numpy.array() objects
+        upper = array(colour_limits[1], dtype="uint8")
+
+        haystack_img, offset = self.get_haystack('skilling').get_screenshot()
+        haystack_mask = cv.inRange(haystack_img, lower, upper)
+        haystack_masked_img = cv.bitwise_and(haystack_img, haystack_img, mask=haystack_mask)      
+        _, haystack_masked_img = cv.threshold(haystack_masked_img, 40, 255, 0)
+        haystack_masked_img = cv.cvtColor(haystack_masked_img, cv.COLOR_BGR2GRAY) 
+
+        extracted_text=self.extract_text(haystack_masked_img, config=config).lower()
+        
+        #FOR DEBUGGING
+        if self.debug:
+            print(f'Combat text: {self.extract_text(haystack_masked_img)}')
+            cv.imshow('haystack_masked_img.jpeg', haystack_masked_img)
+        #cv.imshow('needle_masked_img.jpeg', text_needle.needle_img)
+        
+                #Need to upgrade this if, elif, else statement to handle cooking AND fishing (or any other scripts which require 2 skills at once)
+        #print("                " + extracted_text)
+        if f"0/" in extracted_text:
+        #    print("NOT")
+            return True
+        elif '/' in extracted_text:
+        #    print("skill")
+            return False
+        else:
+        #    print("None")
+            return False
 
     def skilling_check(self, skill, config='--psm 1'):
         colour_limits = [[0, 0,  0], [0, 255, 255]] #Limits for RED and GREEN
@@ -723,12 +755,13 @@ class Bot(Haystack,Needle):
         if f"not {skill}" in extracted_text:
         #    print("NOT")
             return False
-        elif skill in extracted_text:
+        elif skill or skill[1:] in extracted_text:
         #    print("skill")
             return True
         else:
         #    print("None")
             return False
+
 
     def open_inv(self):
         if self.debug: print(f"DEBUGGING:       opening inv ")
@@ -802,18 +835,6 @@ class Bot(Haystack,Needle):
         #if self.debug: print(f"DEBUGGING:       counting clues")
         return 0 #TO DO
     
-    def drop_fish(self, fish_needles): #ASSUMPTIONS: Left-click has been swapped with 'drop'. TO DO: Cooked fish
-        if self.debug: print(f"DEBUGGING:       dropping fish")
-        coords=[]
-        for fish_needle in fish_needles:
-            coords += self.find_img(fish_needle,self.inv_haystack, threshold=0.96)
-        coords=sorted(coords)
-        for coord in coords:
-            self.click(coord)
-            self.clickSleeper('dropping_item')
-            self.shortSleep(80)
-            self.longSleep(300)
-
     def bank_is_open(self):
         haystack_img, offset=self.get_haystack('bank').get_screenshot()
         w,h,c = haystack_img.shape
@@ -895,12 +916,24 @@ class Bot(Haystack,Needle):
     def drop_logs(self, log_needle): #ASSUMPTIONS: Left-click has been swapped with 'drop'. TO DO: Cooked fish
         if self.debug: print(f"DEBUGGING:       dropping logs")
         coords = self.find_img(log_needle,self.inv_haystack)
-        sorted(coords)
+        coords=sorted(coords)
         for coord in coords:
             self.click(coord)
             self.clickSleeper('dropping_item')
             self.shortSleep()
             self.longSleep()
+
+    def drop_fish(self, fish_needles): #ASSUMPTIONS: Left-click has been swapped with 'drop'. TO DO: Cooked fish
+        if self.debug: print(f"DEBUGGING:       dropping fish")
+        coords=[]
+        for fish_needle in fish_needles:
+            coords += self.find_img(fish_needle,self.inv_haystack, threshold=0.96)
+        coords=sorted(coords)
+        for coord in coords:
+            self.click(coord)
+            self.clickSleeper('dropping_item')
+            self.shortSleep(80)
+            self.longSleep(300)
 
     def click_item_in_inv(self, needle):
         coords = self.find_img(needle, self.get_haystack('inv'))

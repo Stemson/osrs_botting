@@ -8,8 +8,8 @@ import cv2 as cv
 
 ### --------------- CONTROL PANEL --------------- ###
 CLIENT_NAME = 'Runelite - Dalakane'
-RUN_DURATION_HOURS = 3 + normalvariate(.25,0.1)
-WHAT_LOGS = 'willow'#'logs'
+RUN_DURATION_HOURS = 5 + normalvariate(.25,0.1)
+WHAT_LOGS = 'willow_logs'#'logs'
 BANK_LOGS = False
 BANK_COLOUR = 'green'
 LIGHT_FIRES = False #TO DO
@@ -55,7 +55,7 @@ def woodcutter(client_name, run_duration_hours, tree_spot_colour, bank_colour, l
             #screenshot, offset = bot.get_haystack('client').get_screenshot()
             #haystack = bot.get_haystack('bank')
             #debug_img, offset = haystack.get_screenshot()
-            debug_img=bot.bank_is_open()
+            debug_img=bot.skilling_check('woodcutting')
             #print(bot.skilling_check('fishing', config='--psm 1'))
             cv.imshow('DEBUG.jpeg', debug_img)
             # Saving a screenshot when 's' is pressed
@@ -70,7 +70,7 @@ def woodcutter(client_name, run_duration_hours, tree_spot_colour, bank_colour, l
         if bot.state==botstate.INITIALIZING:
             print("INITIALIZING")
             #click north and "up" arrow key (Add a scroll out?)
-            bot.set_view()
+            #bot.set_view()
             bot.open_inv()
             bot.close_chat()
             bot.state=botstate.CHECKING_INV

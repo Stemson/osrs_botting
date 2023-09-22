@@ -5,13 +5,13 @@ import os
 import cv2 as cv
 
 ### --------------- CONTROL PANEL --------------- ###
-CLIENT_NAME = 'Runelite - MouldyAss'
-RUN_DURATION_HOURS = 1 + normalvariate(.15,0.1)
-WHAT_FISH = ['trout', 'salmon']  #['shrimp', anchovies']
-COOK_FISH = True 
+CLIENT_NAME = 'Runelite - Vithala'
+RUN_DURATION_HOURS = 3 + normalvariate(.15,0.1)
+WHAT_FISH = ['trout', 'salmon']  # ['shrimp', 'anchovies']
+COOK_FISH = False 
 FISHING_SPOT_COLOUR = 'blue'
 COOKING_COLOUR = 'green'
-DEBUG = False
+DEBUG = True
 
 
 ### --------------- FIXED SETTINGS FOR ALL BOTS --------------- ###
@@ -45,10 +45,11 @@ def fishing(client_name, run_duration_hours, what_fish, fishing_spot_colour, coo
     while t_end > time():
 
         if DEBUG:
-            haystack = bot.get_haystack('chat') 
+            haystack = bot.get_haystack('client') 
             debug_img, offset = haystack.get_screenshot()
             #bot.find_img(Needle('Images\\how_many_would_you_like_to_cook.jpg'), haystack, threshold=0.1,debug_img=debug_img)
-            bot.read_chat('skilling')
+            #bot.read_chat('skilling')
+            bot.find_contours('blue', debug_img=debug_img)
             cv.imshow('DEBUG.jpeg', debug_img)
             # Saving a screenshot when 's' is pressed
             if cv.waitKey(1) == ord('s'):
@@ -61,7 +62,7 @@ def fishing(client_name, run_duration_hours, what_fish, fishing_spot_colour, coo
         if bot.state==botstate.INITIALIZING:
             print("INITIALIZING")
             #click north and "up" arrow key (Add a scroll out?)
-            bot.set_view()
+            #bot.set_view()
             bot.open_inv()
             bot.close_chat()
             bot.state=botstate.CHECKING_INV
@@ -110,7 +111,7 @@ def fishing(client_name, run_duration_hours, what_fish, fishing_spot_colour, coo
             else:
                 cooked_fish=bot.count_fish(fish_cooked_needles)
                 if cooked_fish<inv_full_count:
-                    cook_spot=bot.find_contours(cooking_colour,'client',key='max_area', ignore_region='inv')
+                    cook_spot=bot.find_contours(cooking_colour,'client',key='dist', ignore_region='inv')
                     if cook_spot: 
                         bot.click(cook_spot)
                         bot.click(cook_spot)
