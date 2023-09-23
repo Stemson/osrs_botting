@@ -3,14 +3,15 @@ from time import sleep, time
 from bot_builder_and_functions import Bot, BotState, Needle, Haystack
 import os
 import cv2 as cv
+from threading import Lock
 
 
 
 ### --------------- CONTROL PANEL --------------- ###
 CLIENT_NAME = 'Runelite - Dalakane'
 RUN_DURATION_HOURS = 5 + normalvariate(.25,0.1)
-WHAT_LOGS = 'willow_logs'#'logs'
-BANK_LOGS = False
+WHAT_LOGS = 'oak_logs'#'logs'
+BANK_LOGS = True
 BANK_COLOUR = 'green'
 LIGHT_FIRES = False #TO DO
 AXE_IN_INV = True #lowers count required to drop logs by 1
@@ -18,7 +19,6 @@ TREE_SPOT_COLOUR = 'blue'
 DEBUG = False
 
 # Woodcutting Specific
-logs_needle         = Needle(f'Images\\{WHAT_LOGS}.jpg')
 
 # Inv Specific
 inv_closed          = Needle('Images\\inv_closed.jpg')
@@ -34,10 +34,12 @@ if LIGHT_FIRES: #UNTESTED
     tinder_box_needle = None
 
 ### --------------- Fishing Function --------------- ###
-def woodcutter(client_name, run_duration_hours, tree_spot_colour, bank_colour, light_fires=False, bank_logs=False, axe_in_inv=False, debug=False):
+def woodcutter(client_name, run_duration_hours, what_logs, tree_spot_colour, bank_colour, light_fires=False, bank_logs=False, axe_in_inv=False, debug=False):
 
     bot = Bot(client_name=client_name, debug=debug)
     botstate=BotState()
+
+    logs_needle         = Needle(f'Images\\{WHAT_LOGS}.jpg')
 
     time_start=time()
     t_end = time_start + (60 * 60 * run_duration_hours)
@@ -97,7 +99,7 @@ def woodcutter(client_name, run_duration_hours, tree_spot_colour, bank_colour, l
             print("WOODCUTTING")
             if not bot.skilling_check('woodcutting'):
                 bot.clickSleeper('spam')
-                tree_spot=bot.find_contours(tree_spot_colour, "client")
+                tree_spot=bot.find_contours(tree_spot_colour, "client", key='dist')
                 bot.click(tree_spot)
                 bot.click(tree_spot)
                 sleep(normalvariate(2.5,0.35)) # Wait time while character moves to fishing spot
@@ -131,4 +133,4 @@ def woodcutter(client_name, run_duration_hours, tree_spot_colour, bank_colour, l
 
                
 
-woodcutter(CLIENT_NAME, RUN_DURATION_HOURS, TREE_SPOT_COLOUR, BANK_COLOUR, LIGHT_FIRES, BANK_LOGS, AXE_IN_INV, DEBUG)
+#woodcutter(CLIENT_NAME, RUN_DURATION_HOURS, WHAT_LOGS, TREE_SPOT_COLOUR, BANK_COLOUR, LIGHT_FIRES, BANK_LOGS, AXE_IN_INV, DEBUG)

@@ -9,6 +9,7 @@ import win32gui
 import win32ui
 import win32con
 from PIL import Image, ImageGrab
+from threading import Thread, Lock
 
 import pytesseract
 #NOTE to install pytesseract for image_to_text functions refer to https://stackoverflow.com/questions/50951955/pytesseract-tesseractnotfound-error-tesseract-is-not-installed-or-its-not-i
@@ -17,6 +18,7 @@ pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tessera
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
+threads_paused = False
 
 ### --------------- Needle and Haystack Classes Start --------------- ###
 class Needle:
@@ -54,6 +56,7 @@ class Haystack:
     offset_y = 0
     rect = []
     cropped_region=None
+    lock = Lock()
 
     # constructor
     def __init__(self, window_name=None, cropped_region=array([])):
@@ -97,7 +100,11 @@ class Haystack:
 
 
     def get_screenshot(self):
-
+        global threads_paused
+        if threads_paused:
+            sleep(normalvariate(0.05,0.011)+uniform(0.01, 0.02)) #same as clickSleeper('spam')
+        else:
+            threads_paused = True
         # get the window image data
         wDC = win32gui.GetWindowDC(self.hwnd)
         dcObj = win32ui.CreateDCFromHandle(wDC)
@@ -133,7 +140,7 @@ class Haystack:
         # see the discussion here:
         # https://github.com/opencv/opencv/issues/14866#issuecomment-580207109
         img = ascontiguousarray(img)
-
+        threads_paused = False
         return img, [self.offset_x, self.offset_y]
 
     # find the name of the window you're interested in.
@@ -174,6 +181,7 @@ class BotState: #(enum class)
     DROPPING_LOGS = 11
     LIGHTING_FIRES = 12
     COOKING = 13
+    CRAFTING = 14
 
 
 class Bot(Haystack,Needle):
@@ -239,6 +247,7 @@ class Bot(Haystack,Needle):
 
     def __init__(self, client_name, debug=True, state=None):
         ### properties ###
+
         #Haystacks
         self.client_haystack = Haystack(client_name)
         self.top_left       = [self.client_haystack.offset_x, self.client_haystack.offset_y]

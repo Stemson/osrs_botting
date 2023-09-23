@@ -3,6 +3,7 @@ from time import sleep, time
 from bot_builder_and_functions import Bot, BotState, Needle, Haystack
 import os
 import cv2 as cv
+from threading import Lock
 
 ### --------------- CONTROL PANEL --------------- ###
 CLIENT_NAME = 'Runelite - Vithala'
@@ -11,7 +12,7 @@ WHAT_FISH = ['trout', 'salmon']  # ['shrimp', 'anchovies']
 COOK_FISH = False 
 FISHING_SPOT_COLOUR = 'blue'
 COOKING_COLOUR = 'green'
-DEBUG = True
+DEBUG = False
 
 
 ### --------------- FIXED SETTINGS FOR ALL BOTS --------------- ###
@@ -64,7 +65,7 @@ def fishing(client_name, run_duration_hours, what_fish, fishing_spot_colour, coo
             #click north and "up" arrow key (Add a scroll out?)
             #bot.set_view()
             bot.open_inv()
-            bot.close_chat()
+            #bot.close_chat()
             bot.state=botstate.CHECKING_INV
 
         # 2. Checking Inventory
@@ -121,4 +122,4 @@ def fishing(client_name, run_duration_hours, what_fish, fishing_spot_colour, coo
                 else:
                     bot.state=botstate.DROPPING_FISH
 
-fishing(CLIENT_NAME, RUN_DURATION_HOURS, WHAT_FISH, FISHING_SPOT_COLOUR, COOK_FISH, COOKING_COLOUR, DEBUG)
+#fishing(CLIENT_NAME, RUN_DURATION_HOURS, WHAT_FISH, FISHING_SPOT_COLOUR, COOK_FISH, COOKING_COLOUR, DEBUG)
