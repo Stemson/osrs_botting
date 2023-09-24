@@ -182,6 +182,8 @@ class BotState: #(enum class)
     LIGHTING_FIRES = 12
     COOKING = 13
     CRAFTING = 14
+    HIGH_ALCHING = 15
+    STOPPING = 16
 
 
 class Bot(Haystack,Needle):
